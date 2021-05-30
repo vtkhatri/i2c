@@ -45,23 +45,48 @@ begin
 		STATE_IDLE: begin /* sending start condition */
 			if (sda_reg) sda_reg <= 1'b0;
 			else begin
-				sclk <= 1'b0;
 				state_reg <= STATE_ADDRESSING;
+				sclk <= #2 1'b0;
 			end
 		end
 		STATE_ADDRESSING: begin
-			if (sclk) sclk <= 1'b0;
+			if (sclk) begin
+				if (i_reg == 3'b111) begin
+					state_reg <= STATE_WAITING; /* next state */
+					sda_reg <= 1'b1; /* setting up for receiving ACK */
+					i_reg++; /* resetting i_reg for next set of operations */
+				end
+				sclk <= #2 1'b0;
+			end
 			else begin
 				sda_reg <= i2c_slave_address[i_reg];
-				i_reg++;
-				sclk <= 1'b1;
+				if(i_reg != 3'b111) i_reg++;
+				sclk <= #2 1'b1;
 			end
 		end
 		STATE_WAITING: begin
+			if (sclk) begin
+				sclk <= #2 1'b0;
+			end
+			else begin
+				sclk <= #2 1'b1;
+			end
 		end
 		STATE_READING: begin
+			if (sclk) begin
+				sclk <= #2 1'b0;
+			end
+			else begin
+				sclk <= #2 1'b1;
+			end
 		end
 		STATE_WRITING: begin
+			if (sclk) begin
+				sclk <= #2 1'b0;
+			end
+			else begin
+				sclk <= #2 1'b1;
+			end
 		end
 		STATE_DONE: begin /* sending stop condition */
 			if (!sclk) sclk <= 1'b1;
