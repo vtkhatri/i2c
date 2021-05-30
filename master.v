@@ -30,9 +30,12 @@ reg [3:0] i_reg = 3'b000;     /* bit counter */
 reg [7:0] i_data_reg = 8'h00; /* internal storage register */
 
 reg sda_reg;
-assign sda = !rst ? sda_reg : 1'bz;
+assign sda = !rst ? sda_reg : 1'b1;
 
 assign data = (state_reg == STATE_IDLE) ? i_data_reg : 8'bz;
+
+reg half_ack_received = 1'b0;
+reg half_nack_received = 1'b0;
 
 always@(posedge clk)
 begin
@@ -43,7 +46,7 @@ begin
 	else begin
 		case (state_reg)
 		STATE_IDLE: begin /* sending start condition */
-			if (sda_reg) sda_reg <= 1'b0;
+			if (sda) sda_reg <= 1'b0;
 			else begin
 				state_reg <= STATE_ADDRESSING;
 				sclk <= #2 1'b0;
@@ -66,9 +69,17 @@ begin
 		end
 		STATE_WAITING: begin
 			if (sclk) begin
+				if (half_ack_received) begin
+					if (!sda) begin
+						if (rw) state_reg <= STATE_WRITING;
+						else state_reg <= STATE_READING;
+					end
+					else half_ack_received <= 1'b0;
+				end
 				sclk <= #2 1'b0;
 			end
 			else begin
+				if (!sda) half_ack_received <= 1'b1;
 				sclk <= #2 1'b1;
 			end
 		end
