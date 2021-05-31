@@ -88,6 +88,11 @@ begin
 				sclk <= #2 1'b0;
 			end
 			else begin
+				i_data_reg[i_reg] <= sda;
+				if (i_reg == 1'b111) begin
+					state_reg <= STATE_DONE;
+				end
+				i_reg++;
 				sclk <= #2 1'b1;
 			end
 		end
@@ -96,6 +101,11 @@ begin
 				sclk <= #2 1'b0;
 			end
 			else begin
+				sda_reg <= data[i_reg];
+				if (i_reg == 1'b111) begin
+					state_reg <= STATE_DONE;
+				end
+				i_reg++;
 				sclk <= #2 1'b1;
 			end
 		end
