@@ -71,8 +71,8 @@ begin
 			if (sclk) begin
 				if (half_ack_received) begin
 					if (!sda) begin
-						if (rw) state_reg <= STATE_WRITING;
-						else state_reg <= STATE_READING;
+						if (rw) state_reg <= STATE_READING;
+						else state_reg <= STATE_WRITING;
 					end
 					else half_ack_received <= 1'b0;
 				end

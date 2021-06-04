@@ -30,6 +30,6 @@ module tb_master;
 	initial
 		clk = 0;
 		rst = 1;
-		rw = 1;
+		rw = 0;
 	begin
 endmodule //tb_master
