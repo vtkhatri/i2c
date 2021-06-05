@@ -15,7 +15,7 @@ module master(
 
 parameter [7:0] i2c_slave_address = 8'hee;
 
-localparam READ = 0'b1, WRITE = 0'b0;
+localparam READ = 1'b1, WRITE = 1'b0;
 
 localparam [3:0]
 	STATE_IDLE = 3'd0,

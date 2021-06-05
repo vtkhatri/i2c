@@ -31,6 +31,7 @@ i2c_m (
 // Local variables
 reg [2:0] i = 3'b000;
 localparam READ = 1'b1, WRITE = 1'b0;
+localparam [7:0] DATA_READ = 8'hf6;
 
 initial begin
 	// dumping
@@ -42,7 +43,9 @@ initial begin
 	rst = 1;
 	rw = READ;
 
-	#15 rst = 0 // enable
+	#15 rst = 0; // enable
+	#1000;
+	$stop;
 end
 
 always #5 clk = ~clk;
@@ -67,12 +70,11 @@ begin
 		$display("sending ack, sclk_sda_half-ack = %b_%b_%b", sclk, inout_sda, half_ack);
 		if (half_ack) inout_sda_drive <=1'b1;
 		if (!sclk) inout_sda_drive <= 1'b0;
-		else half_ack = 1'b1
+		else half_ack = 1'b1;
 	end
 
 	if (state === MASTER_STATE_READING) begin
-		localparam data_read [7:0] = 8'hf6;
-		inout_sda_drive <= data_read[i];
+		inout_sda_drive <= DATA_READ[i];
 		i++;
 		$display("master reading, data_bit = %b_%b", inout_data, inout_sda);
 	end
