@@ -37,7 +37,7 @@ initial begin
 	rw = 0;
 
 	// dumping
-	$dumpfile("test_master.lxt");
+	$dumpfile("test_master.vcd");
 	$dumpvars(0, tb_master);
 end
 
