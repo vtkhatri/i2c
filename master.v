@@ -37,8 +37,8 @@ assign data = (state_reg == STATE_IDLE) ? i_data_reg : 8'bz;
 reg half_ack_received = 1'b0;
 reg half_nack_received = 1'b0;
 
-always@(posedge clk)
-begin
+always@(posedge clk) begin
+
 	if (rst) begin
 		sclk <= 1'b1;
 		sda_reg <= 1'b1;
