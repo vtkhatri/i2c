@@ -4,7 +4,7 @@ module tb_master;
 
 // inputs
 reg clk, rst, rw;
-wire [7:0] inout_data
+wire [7:0] inout_data;
 reg [7:0] inout_data_drive;
 assign inout_data = inout_data_drive;
 
