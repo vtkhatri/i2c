@@ -15,6 +15,8 @@ module master(
 
 parameter [7:0] i2c_slave_address = 8'hee;
 
+localparam READ = 0'b1, WRITE = 0'b0;
+
 localparam [3:0]
 	STATE_IDLE = 3'd0,
 	STATE_ADDRESSING = 3'd1,
@@ -71,7 +73,7 @@ always@(posedge clk) begin
 			if (sclk) begin
 				if (half_ack_received) begin
 					if (!sda) begin
-						if (rw) state_reg <= STATE_READING;
+						if (rw === READ) state_reg <= STATE_READING;
 						else state_reg <= STATE_WRITING;
 					end
 					else half_ack_received <= 1'b0;
