@@ -54,7 +54,7 @@ always@(posedge clk) begin
 		end
 		STATE_ADDRESSING: begin
 			if (sclk) begin
-				if (i_reg == 3'b111) begin
+				if (i_reg === 3'b111) begin
 					state_reg <= STATE_WAITING; /* next state */
 					sda_reg <= 1'b1; /* setting up for receiving ACK */
 					i_reg++; /* resetting i_reg for next set of operations */
@@ -89,7 +89,7 @@ always@(posedge clk) begin
 			end
 			else begin
 				i_data_reg[i_reg] <= sda;
-				if (i_reg == 1'b111) begin
+				if (i_reg === 1'b111) begin
 					state_reg <= STATE_DONE;
 				end
 				i_reg++;
@@ -102,7 +102,7 @@ always@(posedge clk) begin
 			end
 			else begin
 				sda_reg <= data[i_reg];
-				if (i_reg == 1'b111) begin
+				if (i_reg === 1'b111) begin
 					state_reg <= STATE_DONE;
 				end
 				i_reg++;
