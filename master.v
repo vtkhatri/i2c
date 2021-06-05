@@ -13,7 +13,7 @@ module master(
 	inout  wire        sda    /* serial data bus */
 );
 
-parameter [7:0] i2c_slave_address = 8'h01;
+parameter [7:0] i2c_slave_address = 8'hee;
 
 localparam [3:0]
 	STATE_IDLE = 3'd0,
@@ -29,8 +29,8 @@ assign state = state_reg;
 reg [3:0] i_reg = 3'b000;     /* bit counter */
 reg [7:0] i_data_reg = 8'h00; /* internal storage register */
 
-reg sda_reg;
-assign sda = !rst ? sda_reg : 1'b1;
+reg sda_drive;
+assign sda = !rst ? sda_drive : 1'b1;
 
 assign data = (state_reg == STATE_IDLE) ? i_data_reg : 8'bz;
 
@@ -41,12 +41,12 @@ always@(posedge clk) begin
 
 	if (rst) begin
 		sclk <= 1'b1;
-		sda_reg <= 1'b1;
+		sda_drive <= 1'b1;
 	end
 	else begin
 		case (state_reg)
 		STATE_IDLE: begin /* sending start condition */
-			if (sda) sda_reg <= 1'b0;
+			if (sda) sda_drive <= 1'b0;
 			else begin
 				state_reg <= STATE_ADDRESSING;
 				sclk <= #2 1'b0;
@@ -56,13 +56,13 @@ always@(posedge clk) begin
 			if (sclk) begin
 				if (i_reg === 3'b111) begin
 					state_reg <= STATE_WAITING; /* next state */
-					sda_reg <= 1'b1; /* setting up for receiving ACK */
+					sda_drive <= 1'b1; /* setting up for receiving ACK */
 					i_reg++; /* resetting i_reg for next set of operations */
 				end
 				sclk <= #2 1'b0;
 			end
 			else begin
-				sda_reg <= i2c_slave_address[i_reg];
+				sda_drive <= i2c_slave_address[i_reg];
 				if(i_reg != 3'b111) i_reg++;
 				sclk <= #2 1'b1;
 			end
@@ -101,7 +101,7 @@ always@(posedge clk) begin
 				sclk <= #2 1'b0;
 			end
 			else begin
-				sda_reg <= data[i_reg];
+				sda_drive <= data[i_reg];
 				if (i_reg === 1'b111) begin
 					state_reg <= STATE_DONE;
 				end
@@ -112,7 +112,7 @@ always@(posedge clk) begin
 		STATE_DONE: begin /* sending stop condition */
 			if (!sclk) sclk <= 1'b1;
 			else begin
-				sda_reg <= 1'b1;
+				sda_drive <= 1'b1;
 				state_reg <= STATE_IDLE;
 			end
 		end
