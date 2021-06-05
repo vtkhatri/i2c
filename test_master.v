@@ -44,6 +44,7 @@ initial begin
 	rw = READ;
 
 	#15 rst = 0; // enable
+	$display("Master out of reset");
 	#1000;
 	$stop;
 end
@@ -61,7 +62,6 @@ reg half_ack = 1'b0;
 
 always@(posedge clk)
 begin
-
 	if (state === MASTER_STATE_ADDRESSING) begin
 		$display("slave addressing, sda = %b", inout_sda);
 	end
