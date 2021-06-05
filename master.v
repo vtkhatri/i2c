@@ -1,16 +1,16 @@
 module master(
 	// master control
-	input wire  rst,  /* reset */
-	input wire  clk,  /* internal clk */
-	input wire  rw,   /* 0 - read, 1 - write */
-	inout [7:0] data, /* data that is read or data to write */
+	input  wire        rst,  /* reset */
+	input  wire        clk,  /* internal clk */
+	input  wire        rw,   /* 0 - read, 1 - write */
+	inout  wire [7:0]  data, /* data that is read or data to write */
 
 	// master output
-	output wire [3:0] state,
+	output wire [3:0]  state,
 
 	// i2c interface
-	output reg sclk,  /* serial clock */
-	inout      sda    /* serial data bus */
+	output reg         sclk,  /* serial clock */
+	inout  wire        sda    /* serial data bus */
 );
 
 parameter [7:0] i2c_slave_address = 8'h01;
