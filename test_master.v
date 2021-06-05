@@ -9,7 +9,7 @@ reg [7:0] inout_data_drive;
 assign inout_data = inout_data_drive;
 
 // ouput state monitor
-wire [3:0] state;
+wire [2:0] state;
 
 // i2c interface
 wire sclk;
@@ -46,12 +46,13 @@ initial begin
 	#15 rst = 0; // enable
 	$display("Master out of reset");
 	#1000;
-	$stop;
+	$display("Stopping after 1000 time units");
+	$finish;
 end
 
 always #5 clk = ~clk;
 
-localparam [3:0]
+localparam [2:0]
 	MASTER_STATE_IDLE = 3'd0,
 	MASTER_STATE_ADDRESSING = 3'd1,
 	MASTER_STATE_WAITING = 3'd2,
