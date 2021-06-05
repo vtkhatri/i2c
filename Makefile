@@ -6,4 +6,4 @@ clean:
 	rm -rf *.vvp *.vcd
 
 display:
-	gtkwave *.vvp
+	gtkwave *.vcd
