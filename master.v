@@ -19,7 +19,7 @@ module master(
 
 parameter CLK_PERIOD = 10;
 
-parameter [7:0] i2c_slave_address = 8'haa;
+parameter [7:0] i2c_slave_address = 8'h5a;
 
 localparam READ = 1'b1, WRITE = 1'b0;
 
@@ -40,6 +40,8 @@ reg [7:0] data_input = 8'h00; /* internal storage register */
 reg half_ack_received = 1'b0;
 reg half_nack_received = 1'b0;
 
+reg last_bit_wait = 1'b0;
+
 initial begin
 	sda_out = 1'b1;
 	sclk = 1'b0;
@@ -53,29 +55,52 @@ always@(posedge clk) begin
 	if (rst == 1'b1) begin
 		sda_out = 1'b1;
 		sclk = 1'b0;
+		last_bit_wait = 1'b0;
 		state_reg = STATE_IDLE;
 	end
 	else begin
 		case (state_reg)
-		STATE_IDLE: begin /* sending start condition */
-			if (sda_in) begin
-				sda_out = 1'b0;
+		STATE_IDLE: begin
+			/* sending start signal
+			 *       ______
+			 * sclk        \_
+			 *       __
+			 * sda     \_____
+			 */
+			if (sclk) begin
+				if (sda_in) begin
+					sda_out = 1'b0;
+				end
 			end
 			else begin
-				state_reg = STATE_ADDRESSING;
+				if (!sda_in) begin
+					state_reg = STATE_ADDRESSING;
+				end
 			end
 		end
 		STATE_ADDRESSING: begin
+			//$display("sclk=%b, last_bit_wait=%b, add[i]=%b[%d], sda=%b", sclk, last_bit_wait, i2c_slave_address[i_reg], i_reg, sda_out);
 			if (sclk) begin
 				if (i_reg == 3'b111) begin
-					state_reg = STATE_WAITING; /* next state */
-					sda_out = 1'b1;            /* setting up for receiving ACK */
-					i_reg++;                   /* resetting i_reg for next set of operations */
+					if (last_bit_wait) begin
+					end
+					else begin
+						state_reg = STATE_WAITING; /* next state */
+						sda_out = 1'b1;            /* setting up for receiving ACK */
+						i_reg++;                   /* resetting i_reg for next set of operations */
+					end
 				end
 			end
 			else begin
 				sda_out = i2c_slave_address[i_reg];
-				if(i_reg != 3'b111) i_reg++;
+				if (i_reg != 3'b111) begin
+					last_bit_wait = 1'b1;
+					i_reg++;
+				end
+				else begin
+					sda_out = i2c_slave_address[i_reg];
+					last_bit_wait = 1'b0;
+				end
 			end
 		end
 		STATE_WAITING: begin

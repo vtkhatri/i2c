@@ -30,6 +30,7 @@ i2c_m (
 
 // Local variables
 reg [2:0] i = 3'b000;
+reg first_bit_wait = 1'b1;
 localparam READ = 1'b1, WRITE = 1'b0;
 localparam [7:0] DATA_READ = 8'hf6;
 
@@ -43,6 +44,7 @@ initial begin
 	rst = 1;
 	rw = READ;
 	sda_in = 1;
+	first_bit_wait = 1;
 
 	#15 rst = 0; // enable
 	$display("Master out of reset");
@@ -68,12 +70,28 @@ begin
 
 	case(state)
 	MASTER_STATE_IDLE: begin
+		/*       ______
+		 * sclk        \_
+		 *       __
+		 * sda     \_____
+		 *         ^
+		 *         |- start signal
+		 */
+		if (sclk) begin
+			if (!sda_out) $display("start signal rx");
+		end
 	end
 
 	MASTER_STATE_ADDRESSING: begin
-		if (!sclk) begin
-			$display("slave addressing, sda[i] = %b[%d]", sda_out, i);
-			i++;
+		if (sclk) begin
+			if (first_bit_wait) begin
+				first_bit_wait = 1'b0;
+			end
+			else begin
+				$display("slave addressing, sda[i] = %b[%d]", sda_out, i);
+				if (i == 3'b111) first_bit_wait = 1'b1;
+				i++;
+			end
 		end
 	end
 
@@ -83,37 +101,47 @@ begin
 	 *         __
 	 * sclk __/  \__
 	 *        ^  ^
-	 *        |  | half-ack set to 0 here, as full ack is sent
-	 *        | halkf-ack set to 1 here, as sda held low for 1 sclk edge
+	 *        |  |- half-ack set to 0 here, as full ack is sent
+	 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
 	 */
 	MASTER_STATE_WAITING: begin
-		if (half_ack) begin
-			$display("full ack sent");
-			sda_in = 1'b1;
-			half_ack = 1'b0;
-		end
-		if (!sclk) begin
-			sda_in = 1'b0;
+		if (first_bit_wait) begin
+			first_bit_wait = 1'b0;
 		end
 		else begin
-			$display("half ack sent");
-			half_ack = 1'b1;
+			if (half_ack) begin
+				$display("full ack sent");
+				sda_in = 1'b1;
+				half_ack = 1'b0;
+				first_bit_wait = 1'b1;
+			end
+			if (!sclk) begin
+				sda_in = 1'b0;
+			end
+			else begin
+				$display("half ack sent");
+				half_ack = 1'b1;
+			end
 		end
 	end
 
 	MASTER_STATE_READING: begin
 		if (!sclk) begin
+			$display("master reading, data<-bit = %b<-%b[%d]", data_out, DATA_READ[i], i);
 			sda_in = DATA_READ[i];
 			i++;
-			$display("master reading, data<-bit = %b<-%b[%d]", data_out, sda_in, i);
 		end
 	end
 	MASTER_STATE_WRITING: begin
 		$display("ACK received, Master writing");
 	end
 
-	MASTER_STATE_DONE: $finish;
+	MASTER_STATE_DONE: begin
+		$display("done, data = %b", data_out);
+		$finish;
+	end
 	endcase
+	$display("state=%d, sclk=%b, sda=%b, wait=%b, ack=%b", state, sclk, sda_in, first_bit_wait, half_ack);
 
 end
 
