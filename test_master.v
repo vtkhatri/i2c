@@ -42,11 +42,12 @@ initial begin
 	clk = 0;
 	rst = 1;
 	rw = READ;
+	sda_in = 1;
 
 	#15 rst = 0; // enable
 	$display("Master out of reset");
-	#1000;
-	$display("Stopping after 1000 time units");
+	#5000;
+	$display("Stopping after 5000 time units");
 	$finish;
 end
 
@@ -63,28 +64,37 @@ reg half_ack = 1'b0;
 
 always@(posedge clk)
 begin
-	$display("sclk_sda_state_data=%b_%b_%b_%b", sclk, sda_out, state, data_out);
-	if (state === MASTER_STATE_ADDRESSING) begin
-		//$display("slave addressing, sda = %b", sda_out);
+	sda_in = sda_out;
+
+	case(state)
+	MASTER_STATE_IDLE: begin
 	end
 
-	if (state === MASTER_STATE_WAITING) begin
-		$display("sending ack, sclk_sda_half-ack = %b_%b_%b", sclk, sda_out, half_ack);
+	MASTER_STATE_ADDRESSING: begin
+		if (!sclk) begin
+			$display("slave addressing, sda[i] = %b[%d]", sda_out, i);
+			i++;
+		end
+	end
+
+	MASTER_STATE_WAITING: begin
+		$display("sending ack, sclk=%b sda-in_out=%b_%b, half-ack=%b", sclk, sda_in, sda_out, half_ack);
 		if (half_ack) sda_in = 1'b1;
 		if (!sclk) sda_in = 1'b0;
 		else half_ack = 1'b1;
 	end
 
-	if (state === MASTER_STATE_READING) begin
+	MASTER_STATE_READING: begin
 		sda_in = DATA_READ[i];
 		i++;
 		$display("master reading, data_bit = %b_%b", data_out, sda_out);
 	end
-	if (state === MASTER_STATE_WRITING) begin
+	MASTER_STATE_WRITING: begin
 		$display("ACK received, Master writing");
 	end
 
-	if (state === MASTER_STATE_DONE) $stop;
+	MASTER_STATE_DONE: $stop;
+	endcase
 
 end
 

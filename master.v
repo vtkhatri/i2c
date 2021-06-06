@@ -1,3 +1,5 @@
+`timescale 1ns/100ps
+
 module master(
 	// master control
 	input  wire        rst,      /* reset */
@@ -14,6 +16,8 @@ module master(
 	output reg         sda_out,  /* serial data bus */
 	input  wire        sda_in    /* serial data bus */
 );
+
+parameter CLK_PERIOD = 10;
 
 parameter [7:0] i2c_slave_address = 8'hee;
 
@@ -53,7 +57,6 @@ always@(posedge clk) begin
 			end
 			else begin
 				state_reg = STATE_ADDRESSING;
-				sclk = #2 1'b0;
 			end
 		end
 		STATE_ADDRESSING: begin
@@ -63,12 +66,10 @@ always@(posedge clk) begin
 					sda_out = 1'b1;            /* setting up for receiving ACK */
 					i_reg++;                   /* resetting i_reg for next set of operations */
 				end
-				sclk = #2 1'b0;
 			end
 			else begin
 				sda_out = i2c_slave_address[i_reg];
 				if(i_reg != 3'b111) i_reg++;
-				sclk = #2 1'b1;
 			end
 		end
 		STATE_WAITING: begin
@@ -80,16 +81,13 @@ always@(posedge clk) begin
 					end
 					else half_ack_received = 1'b0;
 				end
-				sclk = #2 1'b0;
 			end
 			else begin
 				if (!sda_in) half_ack_received = 1'b1;
-				sclk = #2 1'b1;
 			end
 		end
 		STATE_READING: begin
 			if (sclk) begin
-				sclk = #2 1'b0;
 			end
 			else begin
 				data_out[i_reg] = sda_in;
@@ -97,12 +95,10 @@ always@(posedge clk) begin
 					state_reg = STATE_DONE;
 				end
 				i_reg++;
-				sclk = #2 1'b1;
 			end
 		end
 		STATE_WRITING: begin
 			if (sclk) begin
-				sclk = #2 1'b0;
 			end
 			else begin
 				sda_out = data_in[i_reg];
@@ -110,15 +106,14 @@ always@(posedge clk) begin
 					state_reg = STATE_DONE;
 				end
 				i_reg++;
-				sclk = #2 1'b1;
 			end
 		end
 		STATE_DONE: begin /* sending stop condition */
-			if (!sclk) sclk = #2 1'b1;
+			if (!sclk) begin
+			end
 			else begin
 				sda_out = 1'b1;
 				state_reg = STATE_IDLE;
-				sclk = #2 1'b0;
 			end
 		end
 		endcase
