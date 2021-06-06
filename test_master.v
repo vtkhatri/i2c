@@ -4,28 +4,28 @@ module tb_master;
 
 // inputs
 reg clk, rst, rw;
-wire [7:0] inout_data;
-reg [7:0] inout_data_drive;
-assign inout_data = inout_data_drive;
+reg [7:0] data_in;
 
-// ouput state monitor
+// ouputs
 wire [2:0] state;
+wire [7:0] data_out;
 
 // i2c interface
 wire sclk;
-wire inout_sda;
-reg inout_sda_drive;
-assign inout_sda = inout_sda_drive;
+reg  sda_in;
+wire sda_out;
 
 master
 i2c_m (
       .rst(rst),
       .clk(clk),
       .rw(rw),
-      .data(inout_data),
+      .data_in(data_in),
+      .data_out(data_out),
       .state(state),
       .sclk(sclk),
-      .sda(inout_sda)
+      .sda_in(sda_in),
+      .sda_out(sda_out)
 );
 
 // Local variables
@@ -63,21 +63,22 @@ reg half_ack = 1'b0;
 
 always@(posedge clk)
 begin
+	$display("sclk_sda_state_data=%b_%b_%b_%b", sclk, sda_out, state, data_out);
 	if (state === MASTER_STATE_ADDRESSING) begin
-		$display("slave addressing, sda = %b", inout_sda);
+		//$display("slave addressing, sda = %b", sda_out);
 	end
 
 	if (state === MASTER_STATE_WAITING) begin
-		$display("sending ack, sclk_sda_half-ack = %b_%b_%b", sclk, inout_sda, half_ack);
-		if (half_ack) inout_sda_drive <=1'b1;
-		if (!sclk) inout_sda_drive <= 1'b0;
+		$display("sending ack, sclk_sda_half-ack = %b_%b_%b", sclk, sda_out, half_ack);
+		if (half_ack) sda_in = 1'b1;
+		if (!sclk) sda_in = 1'b0;
 		else half_ack = 1'b1;
 	end
 
 	if (state === MASTER_STATE_READING) begin
-		inout_sda_drive <= DATA_READ[i];
+		sda_in = DATA_READ[i];
 		i++;
-		$display("master reading, data_bit = %b_%b", inout_data, inout_sda);
+		$display("master reading, data_bit = %b_%b", data_out, sda_out);
 	end
 	if (state === MASTER_STATE_WRITING) begin
 		$display("ACK received, Master writing");

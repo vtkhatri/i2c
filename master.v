@@ -1,16 +1,18 @@
 module master(
 	// master control
-	input  wire        rst,  /* reset */
-	input  wire        clk,  /* internal clk */
-	input  wire        rw,   /* 0 - read, 1 - write */
-	inout  wire [7:0]  data, /* data that is read or data to write */
+	input  wire        rst,      /* reset */
+	input  wire        clk,      /* internal clk */
+	input  wire        rw,       /* 0 - read, 1 - write */
+	output reg  [7:0]  data_out, /* data that is read or data to write */
+	input  wire [7:0]  data_in,  /* data that is read or data to write */
 
 	// master output
 	output wire [2:0]  state,
 
 	// i2c interface
-	output reg         sclk,  /* serial clock */
-	inout  wire        sda    /* serial data bus */
+	output reg         sclk,     /* serial clock */
+	output reg         sda_out,  /* serial data bus */
+	input  wire        sda_in    /* serial data bus */
 );
 
 parameter [7:0] i2c_slave_address = 8'hee;
@@ -31,28 +33,6 @@ assign state = state_reg;
 reg [2:0] i_reg = 3'b000;     /* bit counter */
 reg [7:0] data_input = 8'h00; /* internal storage register */
 
-// inout drive for sda "wire"
-reg sda_drive, sda_reg;
-assign sda = (sda_drive) ? sda_reg : 1'bz;
-task sda_write(input sda_input);
-begin
-	sda_reg = sda_input;
-	sda_drive = 1'b1;
-	sda_drive = 1'b0;
-end
-endtask
-
-// inout drive for data bus
-reg data_drive, data_reg;
-assign data = (data_drive) ? data_reg : 8'bz;
-task data_write(input [7:0] data_input);
-begin
-	data_drive = 1'b1;
-	data_reg = data_input;
-	data_drive = 1'b0;
-end
-endtask
-
 reg half_ack_received = 1'b0;
 reg half_nack_received = 1'b0;
 
@@ -62,14 +42,14 @@ always@(posedge clk) begin
 
 	if (rst == 1'b1) begin
 		sclk = 1'b1;
-		sda_write(1'b1);
+		sda_out = 1'b1;
 		state_reg = STATE_IDLE;
 	end
 	else begin
 		case (state_reg)
 		STATE_IDLE: begin /* sending start condition */
-			if (sda) begin
-				sda_write(1'b0);
+			if (sda_in) begin
+				sda_out = 1'b0;
 			end
 			else begin
 				state_reg = STATE_ADDRESSING;
@@ -80,13 +60,13 @@ always@(posedge clk) begin
 			if (sclk) begin
 				if (i_reg == 3'b111) begin
 					state_reg = STATE_WAITING; /* next state */
-					sda_write(1'b1); /* setting up for receiving ACK */
-					i_reg++; /* resetting i_reg for next set of operations */
+					sda_out = 1'b1;            /* setting up for receiving ACK */
+					i_reg++;                   /* resetting i_reg for next set of operations */
 				end
 				sclk = #2 1'b0;
 			end
 			else begin
-				sda_write(i2c_slave_address[i_reg]);
+				sda_out = i2c_slave_address[i_reg];
 				if(i_reg != 3'b111) i_reg++;
 				sclk = #2 1'b1;
 			end
@@ -94,16 +74,16 @@ always@(posedge clk) begin
 		STATE_WAITING: begin
 			if (sclk) begin
 				if (half_ack_received) begin
-					if (!sda) begin
-						if (rw == READ) state_reg <= STATE_READING;
-						else state_reg <= STATE_WRITING;
+					if (!sda_in) begin
+						if (rw == READ) state_reg = STATE_READING;
+						else state_reg = STATE_WRITING;
 					end
-					else half_ack_received <= 1'b0;
+					else half_ack_received = 1'b0;
 				end
 				sclk = #2 1'b0;
 			end
 			else begin
-				if (!sda) half_ack_received <= 1'b1;
+				if (!sda_in) half_ack_received = 1'b1;
 				sclk = #2 1'b1;
 			end
 		end
@@ -112,10 +92,9 @@ always@(posedge clk) begin
 				sclk = #2 1'b0;
 			end
 			else begin
-				data_input[i_reg] <= sda;
-				data_write(data_input);
+				data_out[i_reg] = sda_in;
 				if (i_reg == 3'b111) begin
-					state_reg <= STATE_DONE;
+					state_reg = STATE_DONE;
 				end
 				i_reg++;
 				sclk = #2 1'b1;
@@ -126,9 +105,9 @@ always@(posedge clk) begin
 				sclk = #2 1'b0;
 			end
 			else begin
-				sda_write(data[i_reg]);
+				sda_out = data_in[i_reg];
 				if (i_reg == 3'b111) begin
-					state_reg <= STATE_DONE;
+					state_reg = STATE_DONE;
 				end
 				i_reg++;
 				sclk = #2 1'b1;
@@ -137,8 +116,8 @@ always@(posedge clk) begin
 		STATE_DONE: begin /* sending stop condition */
 			if (!sclk) sclk = #2 1'b1;
 			else begin
-				sda_write(1'b1);
-				state_reg <= STATE_IDLE;
+				sda_out = 1'b1;
+				state_reg = STATE_IDLE;
 				sclk = #2 1'b0;
 			end
 		end
