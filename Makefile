@@ -3,7 +3,7 @@ master:
 	vvp test_master.vvp
 
 clean:
-	rm -rf *.vvp *.vcd
+	rm -f *.vvp *.vcd
 
 display:
 	gtkwave *.vcd
