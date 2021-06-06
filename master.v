@@ -19,7 +19,7 @@ module master(
 
 parameter CLK_PERIOD = 10;
 
-parameter [7:0] i2c_slave_address = 8'h5a;
+parameter [7:0] i2c_slave_address = 8'ha5;
 
 localparam READ = 1'b1, WRITE = 1'b0;
 
@@ -37,8 +37,8 @@ assign state = state_reg;
 reg [2:0] i_reg = 3'b000;     /* bit counter */
 reg [7:0] data_input = 8'h00; /* internal storage register */
 
-reg half_ack_received = 1'b0;
-reg half_nack_received = 1'b0;
+reg [1:0] half_ack_received = 2'b00;
+reg [1:0] half_nack_received = 2'b00;
 
 reg last_bit_wait = 1'b0;
 
@@ -61,11 +61,12 @@ always@(posedge clk) begin
 	else begin
 		case (state_reg)
 		STATE_IDLE: begin
-			/* sending start signal
-			 *       ______
+			/*       ______
 			 * sclk        \_
 			 *       __
 			 * sda     \_____
+			 *         ^
+			 *         |- start signal
 			 */
 			if (sclk) begin
 				if (sda_in) begin
@@ -79,7 +80,6 @@ always@(posedge clk) begin
 			end
 		end
 		STATE_ADDRESSING: begin
-			//$display("sclk=%b, last_bit_wait=%b, add[i]=%b[%d], sda=%b", sclk, last_bit_wait, i2c_slave_address[i_reg], i_reg, sda_out);
 			if (sclk) begin
 				if (i_reg == 3'b111) begin
 					if (last_bit_wait) begin
@@ -103,18 +103,39 @@ always@(posedge clk) begin
 				end
 			end
 		end
+		/* ACK signal
+		 *      _          _
+		 * sda   \________/
+		 *          ___
+		 * sclk ___/   \__
+		 *        ^  ^  ^
+		 *        |  |  |- half-ack reset to 0 here, as full ack is sent
+		 *        |  |- half-ack set to 2 here, as sda has been held low for sclk high
+		 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
+		 */
 		STATE_WAITING: begin
 			if (sclk) begin
-				if (half_ack_received) begin
-					if (!sda_in) begin
-						if (rw == READ) state_reg = STATE_READING;
-						else state_reg = STATE_WRITING;
+				if (half_ack_received == 2'b01) begin
+					if (sda_in) begin
+						half_ack_received = 2'b00;
 					end
-					else half_ack_received = 1'b0;
+					else begin
+						half_ack_received = 2'b10;
+					end
 				end
 			end
 			else begin
-				if (!sda_in) half_ack_received = 1'b1;
+				if (sda_in) begin
+					half_ack_received = 2'b00;
+				end
+				else begin
+					if (half_ack_received == 2'b00) half_ack_received = 2'b01;
+					if (half_ack_received == 2'b10) begin
+						half_ack_received = 2'b00;
+						if (rw == READ) state_reg = STATE_READING;
+						else state_reg = STATE_WRITING;
+					end
+				end
 			end
 		end
 		STATE_READING: begin

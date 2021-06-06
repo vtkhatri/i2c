@@ -55,6 +55,8 @@ end
 
 always #5 clk = ~clk;
 
+//always #1 $display("clk, sclk, sda = %b %b %b", clk, sclk, sda_out);
+
 localparam [2:0]
 	MASTER_STATE_IDLE = 3'd0,
 	MASTER_STATE_ADDRESSING = 3'd1,
@@ -69,14 +71,14 @@ begin
 	sda_in = sda_out;
 
 	case(state)
+	/*       ______
+	 * sclk        \_
+	 *       __
+	 * sda     \_____
+	 *         ^
+	 *         |- start signal
+	 */
 	MASTER_STATE_IDLE: begin
-		/*       ______
-		 * sclk        \_
-		 *       __
-		 * sda     \_____
-		 *         ^
-		 *         |- start signal
-		 */
 		if (sclk) begin
 			if (!sda_out) $display("start signal rx");
 		end
@@ -89,7 +91,7 @@ begin
 			end
 			else begin
 				$display("slave addressing, sda[i] = %b[%d]", sda_out, i);
-				if (i == 3'b111) first_bit_wait = 1'b1;
+				if (i == 3'b110) first_bit_wait = 1'b1;
 				i++;
 			end
 		end
@@ -106,6 +108,7 @@ begin
 	 */
 	MASTER_STATE_WAITING: begin
 		if (first_bit_wait) begin
+			$display("slave addressing, sda[i] = %b[%d] (received while master is in wait state)", sda_out, i);
 			first_bit_wait = 1'b0;
 		end
 		else begin
@@ -141,7 +144,6 @@ begin
 		$finish;
 	end
 	endcase
-	$display("state=%d, sclk=%b, sda=%b, wait=%b, ack=%b", state, sclk, sda_in, first_bit_wait, half_ack);
 
 end
 
