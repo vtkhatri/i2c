@@ -19,7 +19,7 @@ module master(
 
 parameter CLK_PERIOD = 10;
 
-parameter [7:0] i2c_slave_address = 8'hee;
+parameter [7:0] i2c_slave_address = 8'haa;
 
 localparam READ = 1'b1, WRITE = 1'b0;
 
@@ -40,13 +40,19 @@ reg [7:0] data_input = 8'h00; /* internal storage register */
 reg half_ack_received = 1'b0;
 reg half_nack_received = 1'b0;
 
+initial begin
+	sda_out = 1'b1;
+	sclk = 1'b0;
+	state_reg = STATE_IDLE;
+end
+
 always@(posedge clk) #2 sclk = ~sclk;
 
 always@(posedge clk) begin
 
 	if (rst == 1'b1) begin
-		sclk = 1'b1;
 		sda_out = 1'b1;
+		sclk = 1'b0;
 		state_reg = STATE_IDLE;
 	end
 	else begin
@@ -113,7 +119,6 @@ always@(posedge clk) begin
 			end
 			else begin
 				sda_out = 1'b1;
-				state_reg = STATE_IDLE;
 			end
 		end
 		endcase

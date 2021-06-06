@@ -77,23 +77,42 @@ begin
 		end
 	end
 
+	/* ACK signal
+	 *      _      _
+	 * sda   \____/
+	 *         __
+	 * sclk __/  \__
+	 *        ^  ^
+	 *        |  | half-ack set to 0 here, as full ack is sent
+	 *        | halkf-ack set to 1 here, as sda held low for 1 sclk edge
+	 */
 	MASTER_STATE_WAITING: begin
-		$display("sending ack, sclk=%b sda-in_out=%b_%b, half-ack=%b", sclk, sda_in, sda_out, half_ack);
-		if (half_ack) sda_in = 1'b1;
-		if (!sclk) sda_in = 1'b0;
-		else half_ack = 1'b1;
+		if (half_ack) begin
+			$display("full ack sent");
+			sda_in = 1'b1;
+			half_ack = 1'b0;
+		end
+		if (!sclk) begin
+			sda_in = 1'b0;
+		end
+		else begin
+			$display("half ack sent");
+			half_ack = 1'b1;
+		end
 	end
 
 	MASTER_STATE_READING: begin
-		sda_in = DATA_READ[i];
-		i++;
-		$display("master reading, data_bit = %b_%b", data_out, sda_out);
+		if (!sclk) begin
+			sda_in = DATA_READ[i];
+			i++;
+			$display("master reading, data<-bit = %b<-%b[%d]", data_out, sda_in, i);
+		end
 	end
 	MASTER_STATE_WRITING: begin
 		$display("ACK received, Master writing");
 	end
 
-	MASTER_STATE_DONE: $stop;
+	MASTER_STATE_DONE: $finish;
 	endcase
 
 end
