@@ -130,7 +130,7 @@ begin
 
 	MASTER_STATE_READING: begin
 		if (!sclk) begin
-			$display("master reading, data<-bit = %b<-%b[%d]", data_out, DATA_READ[i], i);
+			$display("master reading, data<-bit    = %b<-%b[%d]", data_out, DATA_READ[i], i);
 			sda_in = DATA_READ[i];
 			i++;
 		end
@@ -140,7 +140,7 @@ begin
 	end
 
 	MASTER_STATE_DONE: begin
-		$display("done, data = %b", data_out);
+		$display("master read done, final data = %b", data_out);
 		$finish;
 	end
 	endcase
