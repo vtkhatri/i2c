@@ -48,10 +48,11 @@ initial begin
 	state_reg = STATE_IDLE;
 end
 
-always@(posedge clk) #2 sclk = ~sclk;
+always@(posedge clk) #3 sclk = ~sclk;
+
 
 always@(posedge clk) begin
-
+	$display("master sda %b start", sda_in);
 	if (rst == 1'b1) begin
 		sda_out = 1'b1;
 		sclk = 1'b0;
@@ -74,9 +75,10 @@ always@(posedge clk) begin
 				end
 			end
 			else begin
-				if (!sda_in) begin
-					state_reg = STATE_ADDRESSING;
-				end
+				if (!sda_in) state_reg = STATE_ADDRESSING;
+				/* if (!sda_in) begin */
+				/* 	state_reg = STATE_ADDRESSING; */
+				/* end */
 			end
 		end
 		STATE_ADDRESSING: begin
@@ -109,7 +111,7 @@ always@(posedge clk) begin
 		 *          ___
 		 * sclk ___/   \__
 		 *        ^  ^  ^
-		 *        |  |  |- half-ack reset to 0 here, as full ack is sent
+		 *        |  |  |- half-ack reset and next state set here, as full ack is sent
 		 *        |  |- half-ack set to 2 here, as sda has been held low for sclk high
 		 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
 		 */
@@ -160,7 +162,14 @@ always@(posedge clk) begin
 				i_reg++;
 			end
 		end
-		STATE_DONE: begin /* sending stop condition */
+		STATE_DONE: begin
+			/*       ______
+			 * sclk        \_
+			 *          _____
+			 * sda   __/
+			 *         ^
+			 *         |- stop signal
+			 */
 			if (!sclk) begin
 			end
 			else begin
@@ -169,6 +178,8 @@ always@(posedge clk) begin
 		end
 		endcase
 	end
+
+	$display("master sda %b", sda_out);
 end
 
 endmodule

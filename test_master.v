@@ -46,16 +46,12 @@ initial begin
 	sda_in = 1;
 	first_bit_wait = 1;
 
-	#15 rst = 0; // enable
+	#17 rst = 0; // enable
 	$display("Master out of reset");
 	#5000;
 	$display("Stopping after 5000 time units");
 	$finish;
 end
-
-always #5 clk = ~clk;
-
-//always #1 $display("clk, sclk, sda = %b %b %b", clk, sclk, sda_out);
 
 localparam [2:0]
 	MASTER_STATE_IDLE = 3'd0,
@@ -66,9 +62,13 @@ localparam [2:0]
 	MASTER_STATE_DONE = 3'd5;
 reg half_ack = 1'b0;
 
+always #5 clk = ~clk;
+
 always@(posedge clk)
 begin
+	$display("posedge clk, state = %b", state);
 	sda_in = sda_out;
+	$display("tb sclk sda %b %b", sclk, sda_in);
 
 	case(state)
 	/*       ______
@@ -80,7 +80,7 @@ begin
 	 */
 	MASTER_STATE_IDLE: begin
 		if (sclk) begin
-			if (!sda_out) $display("start signal rx");
+			if (sda_out) $display("master will send start signal");
 		end
 	end
 
@@ -144,8 +144,8 @@ begin
 		$finish;
 	end
 	endcase
+	$display("sclk sda %b %b", sclk, sda_in);
 
 end
-
 
 endmodule //tb_master
