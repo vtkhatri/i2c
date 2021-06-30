@@ -6,6 +6,9 @@ module tb_master;
 reg clk, rst, rw;
 reg [7:0] data_in;
 
+// master clock to make sure tb is always first
+reg clk_m;
+
 // ouputs
 wire [2:0] state;
 wire [7:0] data_out;
@@ -18,7 +21,7 @@ wire sda_out;
 master
 i2c_m (
       .rst(rst),
-      .clk(clk),
+      .clk(clk_m),
       .rw(rw),
       .data_in(data_in),
       .data_out(data_out),
@@ -41,6 +44,7 @@ initial begin
 
 	// starting variables
 	clk = 0;
+	clk_m = 0;
 	rst = 1;
 	rw = READ;
 	sda_in = 1;
@@ -64,10 +68,12 @@ reg half_ack = 1'b0;
 
 always #5 clk = ~clk;
 
+always clk_m = #1 clk;
+
 always@(posedge clk)
 begin
 	sda_in = sda_out;
-	$display("tb sclk sda %b %b", sclk, sda_in);
+	$display("tb state %d sclk sda %b %b", state, sclk, sda_in);
 
 	case(state)
 	/*       ______
@@ -80,6 +86,11 @@ begin
 	MASTER_STATE_IDLE: begin
 		if (sclk) begin
 			if (sda_out) $display("master will send start signal");
+			else $display("master just sent start signal");
+		end
+		else begin
+			if (sda_out) $display("not a start signal");
+			else $display("master set sclk low after sending start signal");
 		end
 	end
 
@@ -143,7 +154,7 @@ begin
 		$finish;
 	end
 	endcase
-	$display("   sclk sda %b %b", sclk, sda_in);
+	$display("           sclk sda %b %b", sclk, sda_in);
 
 end
 
