@@ -66,7 +66,6 @@ always #5 clk = ~clk;
 
 always@(posedge clk)
 begin
-	$display("posedge clk, state = %b", state);
 	sda_in = sda_out;
 	$display("tb sclk sda %b %b", sclk, sda_in);
 
@@ -86,12 +85,12 @@ begin
 
 	MASTER_STATE_ADDRESSING: begin
 		if (sclk) begin
-			if (first_bit_wait) begin
+			if (first_bit_wait && i == 0) begin
 				first_bit_wait = 1'b0;
 			end
 			else begin
-				$display("slave addressing, sda[i] = %b[%d]", sda_out, i);
-				if (i == 3'b110) first_bit_wait = 1'b1;
+				if (i == 7) first_bit_wait = 1'b1;
+				$display("slave addressing, sda[i] = %b[%d]", sda_out, i, first_bit_wait);
 				i++;
 			end
 		end
@@ -107,11 +106,11 @@ begin
 	 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
 	 */
 	MASTER_STATE_WAITING: begin
-		if (first_bit_wait) begin
-			$display("slave addressing, sda[i] = %b[%d] (received while master is in wait state)", sda_out, i);
-			first_bit_wait = 1'b0;
-		end
-		else begin
+		/* if (first_bit_wait) begin */
+		/* 	$display("slave addressing, sda[i] = %b[%d] (received while master is in wait state)", sda_out, i); */
+		/* 	first_bit_wait = 1'b0; */
+		/* end */
+		/* else begin */
 			if (half_ack) begin
 				$display("full ack sent");
 				sda_in = 1'b1;
@@ -125,7 +124,7 @@ begin
 				$display("half ack sent");
 				half_ack = 1'b1;
 			end
-		end
+		/* end */
 	end
 
 	MASTER_STATE_READING: begin
@@ -144,7 +143,7 @@ begin
 		$finish;
 	end
 	endcase
-	$display("sclk sda %b %b", sclk, sda_in);
+	$display("   sclk sda %b %b", sclk, sda_in);
 
 end
 
