@@ -41,6 +41,9 @@ initial begin
 	// dumping
 	$dumpfile("test_master.vcd");
 	$dumpvars(0, tb_master);
+	$display("============");
+	$display("Starting Sim");
+	$display("============");
 
 	// starting variables
 	clk = 0;
@@ -83,13 +86,13 @@ begin
 	 *         |- start signal
 	 */
 	MASTER_STATE_IDLE: begin
-		if (sclk) begin
-			if (sda_out) $display("master will send start signal");
-			else $display("master just sent start signal");
-		end
-		else begin
-			if (sda_out) $display("not a start signal");
-			else $display("master set sclk low after sending start signal");
+		if (!rst) begin
+			if (sclk) begin
+				if (sda_out) $display("master will send start signal");
+			end
+			else begin
+				if (!sda_out)  $display("start signal received");
+			end
 		end
 	end
 
