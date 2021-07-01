@@ -1,5 +1,3 @@
-`timescale 1ns/100ps
-
 module tb_master;
 
 // inputs
@@ -43,6 +41,8 @@ initial begin
 	// dumping
 	$dumpfile("test_master.vcd");
 	$dumpvars(0, tb_master);
+	$dumpvars(1, i2c_m);
+
 	$display("============");
 	$display("Starting Sim");
 	$display("============");
@@ -51,7 +51,7 @@ initial begin
 	clk = 0;
 	clk_m = 0;
 	rst = 1;
-	rw = WRITE;
+	rw = READ;
 	sda_in = 1;
 	first_bit_wait = 1;
 	rw_bit_wait = 0;

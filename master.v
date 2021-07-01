@@ -1,5 +1,3 @@
-`timescale 1ns/100ps
-
 module master(
 	// master control
 	input  wire        rst,      /* reset */
@@ -48,8 +46,7 @@ initial begin
 	state_reg = STATE_IDLE;
 end
 
-always@(posedge clk) #3 sclk = ~sclk;
-
+always@(posedge clk) if (!rst) #3 sclk = ~sclk;
 
 always@(posedge clk) begin
 	if (rst == 1'b1) begin
