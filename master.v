@@ -40,7 +40,7 @@ reg [7:0] data_input = 8'h00; /* internal storage register */
 reg [1:0] half_ack_received = 2'b00;
 reg [1:0] half_nack_received = 2'b00;
 
-reg last_bit_wait = 1'b0;
+reg rw_bit_wait = 1'b0;
 
 initial begin
 	sda_out = 1'b1;
@@ -55,7 +55,7 @@ always@(posedge clk) begin
 	if (rst == 1'b1) begin
 		sda_out = 1'b1;
 		sclk = 1'b0;
-		last_bit_wait = 1'b0;
+		rw_bit_wait = 1'b0;
 		state_reg = STATE_IDLE;
 	end
 	else begin
@@ -87,8 +87,9 @@ always@(posedge clk) begin
 		STATE_ADDRESSING: begin
 			if (sclk) begin
 				if (i_reg == 3'b111) begin
-					if (last_bit_wait) begin
+					if (rw_bit_wait) begin
 						sda_out = rw;
+						rw_bit_wait = 1'b0;
 					end
 					else begin
 						state_reg = STATE_WAITING; /* next state */
@@ -100,12 +101,11 @@ always@(posedge clk) begin
 			else begin
 				sda_out = i2c_slave_address[i_reg];
 				if (i_reg != 3'b111) begin
-					last_bit_wait = 1'b1;
+					rw_bit_wait = 1'b1;
 					i_reg++;
 				end
 				else begin
 					sda_out = i2c_slave_address[i_reg];
-					last_bit_wait = 1'b0;
 				end
 			end
 		end
