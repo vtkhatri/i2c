@@ -60,6 +60,10 @@ always@(posedge clk) begin
 		state_reg = STATE_IDLE;
 	end
 	else begin
+
+		/* To sync sda_out and sda_in lines */
+		sda_out = sda_in;
+
 		case (state_reg)
 		STATE_IDLE: begin
 			/*       ______
