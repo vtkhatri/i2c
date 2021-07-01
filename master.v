@@ -4,17 +4,17 @@ module master(
 	// master control
 	input  wire        rst,      /* reset */
 	input  wire        clk,      /* internal clk */
-	input  wire        rw,       /* 0 - read, 1 - write */
-	output reg  [7:0]  data_out, /* data that is read or data to write */
-	input  wire [7:0]  data_in,  /* data that is read or data to write */
+	input  wire        rw,       /* 1 - read, 0 - write */
+	output reg  [7:0]  data_out, /* data out bus */
+	input  wire [7:0]  data_in,  /* data in bus */
 
 	// master output
-	output wire [2:0]  state,
+	output wire [2:0]  state,    /* for debugging purposes */
 
 	// i2c interface
 	output reg         sclk,     /* serial clock */
-	output reg         sda_out,  /* serial data bus */
-	input  wire        sda_in    /* serial data bus */
+	output reg         sda_out,  /* serial data out bus */
+	input  wire        sda_in    /* serial data in bus */
 );
 
 parameter CLK_PERIOD = 10;
@@ -88,6 +88,7 @@ always@(posedge clk) begin
 			if (sclk) begin
 				if (i_reg == 3'b111) begin
 					if (last_bit_wait) begin
+						sda_out = rw;
 					end
 					else begin
 						state_reg = STATE_WAITING; /* next state */

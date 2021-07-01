@@ -33,9 +33,10 @@ i2c_m (
 
 // Local variables
 reg [2:0] i = 3'b000;
-reg first_bit_wait = 1'b1;
+reg rw_bit_wait = 1'b0;
 localparam READ = 1'b1, WRITE = 1'b0;
 localparam [7:0] DATA_READ = 8'hf6;
+localparam [7:0] DATA_WRITE = 8'ha6;
 
 initial begin
 	// dumping
@@ -49,9 +50,9 @@ initial begin
 	clk = 0;
 	clk_m = 0;
 	rst = 1;
-	rw = READ;
+	rw = WRITE;
 	sda_in = 1;
-	first_bit_wait = 1;
+	rw_bit_wait = 0;
 
 	#17 rst = 0; // enable
 	$display("Master out of reset");
@@ -98,11 +99,13 @@ begin
 
 	MASTER_STATE_ADDRESSING: begin
 		if (sclk) begin
-			if (first_bit_wait && i == 0) begin
-				first_bit_wait = 1'b0;
+			if (rw_bit_wait) begin
+				if (sda_out) $display("sda = %b, reading", sda_out);
+				else $display("sda = %b, writing", sda_out);
+				rw_bit_wait = 1'b0;
 			end
 			else begin
-				if (i == 7) first_bit_wait = 1'b1;
+				if (i == 7) rw_bit_wait = 1'b1;
 				$display("slave addressing, sda[i] = %b[%d]", sda_out, i);
 				i++;
 			end
@@ -123,7 +126,6 @@ begin
 			$display("full ack sent");
 			sda_in = 1'b1;
 			half_ack = 1'b0;
-			first_bit_wait = 1'b1;
 		end
 		if (!sclk) begin
 			sda_in = 1'b0;
