@@ -116,25 +116,19 @@ begin
 	 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
 	 */
 	MASTER_STATE_WAITING: begin
-		/* if (first_bit_wait) begin */
-		/* 	$display("slave addressing, sda[i] = %b[%d] (received while master is in wait state)", sda_out, i); */
-		/* 	first_bit_wait = 1'b0; */
-		/* end */
-		/* else begin */
-			if (half_ack) begin
-				$display("full ack sent");
-				sda_in = 1'b1;
-				half_ack = 1'b0;
-				first_bit_wait = 1'b1;
-			end
-			if (!sclk) begin
-				sda_in = 1'b0;
-			end
-			else begin
-				$display("half ack sent");
-				half_ack = 1'b1;
-			end
-		/* end */
+		if (half_ack) begin
+			$display("full ack sent");
+			sda_in = 1'b1;
+			half_ack = 1'b0;
+			first_bit_wait = 1'b1;
+		end
+		if (!sclk) begin
+			sda_in = 1'b0;
+		end
+		else begin
+			$display("half ack sent");
+			half_ack = 1'b1;
+		end
 	end
 
 	MASTER_STATE_READING: begin
