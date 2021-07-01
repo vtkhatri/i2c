@@ -73,7 +73,6 @@ always clk_m = #1 clk;
 always@(posedge clk)
 begin
 	sda_in = sda_out;
-	$display("tb state %d sclk sda %b %b", state, sclk, sda_in);
 
 	case(state)
 	/*       ______
@@ -101,7 +100,7 @@ begin
 			end
 			else begin
 				if (i == 7) first_bit_wait = 1'b1;
-				$display("slave addressing, sda[i] = %b[%d]", sda_out, i, first_bit_wait);
+				$display("slave addressing, sda[i] = %b[%d]", sda_out, i);
 				i++;
 			end
 		end
@@ -154,7 +153,6 @@ begin
 		$finish;
 	end
 	endcase
-	$display("           sclk sda %b %b", sclk, sda_in);
 
 end
 

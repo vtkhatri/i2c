@@ -52,7 +52,6 @@ always@(posedge clk) #3 sclk = ~sclk;
 
 
 always@(posedge clk) begin
-	$display("master sda %b", sda_in);
 	if (rst == 1'b1) begin
 		sda_out = 1'b1;
 		sclk = 1'b0;
@@ -120,7 +119,6 @@ always@(posedge clk) begin
 		 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
 		 */
 		STATE_WAITING: begin
-			$display("-half_ack %d sclk sda %b %b", half_ack_received, sclk, sda_out);
 			if (sclk) begin
 				if (half_ack_received == 2'b01) begin
 					if (sda_in) begin
@@ -184,7 +182,6 @@ always@(posedge clk) begin
 		endcase
 	end
 
-	$display("       sda %b", sda_out);
 end
 
 endmodule
