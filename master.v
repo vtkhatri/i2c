@@ -19,7 +19,7 @@ module master(
 
 parameter CLK_PERIOD = 10;
 
-parameter [7:0] i2c_slave_address = 8'ha5;
+parameter [7:0] i2c_slave_address = 8'h5a;
 
 localparam READ = 1'b1, WRITE = 1'b0;
 
@@ -79,17 +79,13 @@ always@(posedge clk) begin
 			end
 			else begin
 				if (!sda_in) state_reg = STATE_ADDRESSING;
-				/* if (!sda_in) begin */
-				/* 	state_reg = STATE_ADDRESSING; */
-				/* end */
 			end
 		end
 		STATE_ADDRESSING: begin
+			$display("rw i sclk %b %d %b", rw_bit_wait, i_reg, sclk);
 			if (sclk) begin
 				if (i_reg == 3'b111) begin
 					if (rw_bit_wait) begin
-						sda_out = rw;
-						rw_bit_wait = 1'b0;
 					end
 					else begin
 						state_reg = STATE_WAITING; /* next state */
@@ -105,7 +101,9 @@ always@(posedge clk) begin
 					i_reg++;
 				end
 				else begin
-					sda_out = i2c_slave_address[i_reg];
+					if (rw_bit_wait) sda_out = i2c_slave_address[i_reg];
+					else  sda_out = rw;
+					rw_bit_wait = 1'b0;
 				end
 			end
 		end
