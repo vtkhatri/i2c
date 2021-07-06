@@ -36,6 +36,7 @@ reg rw_bit_wait = 1'b0;
 localparam READ = 1'b1, WRITE = 1'b0;
 localparam [7:0] DATA_READ = 8'hf6;
 localparam [7:0] DATA_WRITE = 8'ha6;
+reg tic_counter = 0;
 
 initial begin
 	// dumping
@@ -55,6 +56,7 @@ initial begin
 	sda_in = 1;
 	first_bit_wait = 1;
 	rw_bit_wait = 0;
+	tic_counter = 0;
 
 	#17 rst = 0; // enable
 	$display("Master out of reset");
@@ -78,6 +80,7 @@ always clk_m = #1 clk;
 
 always@(posedge clk)
 begin
+	if (!rst) tic_counter++;
 	sda_in = sda_out;
 
 	case(state)
@@ -92,9 +95,11 @@ begin
 		if (!rst) begin
 			if (sclk) begin
 				if (sda_out) $display("master will send start signal");
+				else $display("start signal");
 			end
 			else begin
-				if (!sda_out)  $display("start signal received");
+				if (sda_out) $display("¯\\_(ツ)_/¯");
+				else $display("start signal received");
 			end
 		end
 	end
@@ -134,7 +139,7 @@ begin
 			half_ack = 1'b0;
 			first_bit_wait = 1'b1;
 		end
-		if (!sclk) begin
+		if (!sclk && tic_counter == 4) begin
 			sda_in = 1'b0;
 		end
 		else begin

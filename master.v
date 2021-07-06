@@ -15,7 +15,8 @@ module master(
 	input  wire        sda_in    /* serial data in bus */
 );
 
-parameter CLK_PERIOD = 10;
+/* adds more granularity for checking waveforms and states */
+reg [2:0] tic_counter = 3'b000;
 
 parameter [7:0] i2c_slave_address = 8'h5a;
 
@@ -46,7 +47,12 @@ initial begin
 	state_reg = STATE_IDLE;
 end
 
-always@(posedge clk) if (!rst) #3 sclk = ~sclk;
+always@(posedge clk) begin
+	if (!rst)  begin
+		tic_counter++;
+		if (!tic_counter) sclk = ~sclk;
+	end
+end
 
 always@(posedge clk) begin
 	if (rst == 1'b1) begin
@@ -70,7 +76,7 @@ always@(posedge clk) begin
 			 *         |- start signal
 			 */
 			if (sclk) begin
-				if (sda_in) begin
+				if (sda_in && tic_counter == 4) begin
 					sda_out = 1'b0;
 				end
 			end
@@ -79,28 +85,29 @@ always@(posedge clk) begin
 			end
 		end
 		STATE_ADDRESSING: begin
-			$display("rw i sclk %b %d %b", rw_bit_wait, i_reg, sclk);
-			if (sclk) begin
-				if (i_reg == 3'b111) begin
-					if (rw_bit_wait) begin
+			if (!tic_counter) begin
+				if (sclk) begin
+					if (i_reg == 3'b111) begin
+						if (rw_bit_wait) begin
+						end
+						else begin
+							state_reg = STATE_WAITING; /* next state */
+							sda_out = 1'b1;            /* setting up for receiving ACK */
+							i_reg++;                   /* resetting i_reg for next set of operations */
+						end
 					end
-					else begin
-						state_reg = STATE_WAITING; /* next state */
-						sda_out = 1'b1;            /* setting up for receiving ACK */
-						i_reg++;                   /* resetting i_reg for next set of operations */
-					end
-				end
-			end
-			else begin
-				sda_out = i2c_slave_address[i_reg];
-				if (i_reg != 3'b111) begin
-					rw_bit_wait = 1'b1;
-					i_reg++;
 				end
 				else begin
-					if (rw_bit_wait) sda_out = i2c_slave_address[i_reg];
-					else  sda_out = rw;
-					rw_bit_wait = 1'b0;
+					sda_out = i2c_slave_address[i_reg];
+					if (i_reg != 3'b111) begin
+						rw_bit_wait = 1'b1;
+						i_reg++;
+					end
+					else begin
+						if (rw_bit_wait) sda_out = i2c_slave_address[i_reg];
+						else  sda_out = rw;
+						rw_bit_wait = 1'b0;
+					end
 				end
 			end
 		end
