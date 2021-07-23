@@ -18,15 +18,15 @@ wire sda_out;
 
 master
 i2c_m (
-      .rst(rst),
-      .clk(clk_m),
-      .rw(rw),
-      .data_in(data_in),
-      .data_out(data_out),
-      .state(state),
-      .sclk(sclk),
-      .sda_in(sda_in),
-      .sda_out(sda_out)
+	.rst(rst),
+	.clk(clk_m),
+	.rw(rw),
+	.data_in(data_in),
+	.data_out(data_out),
+	.state(state),
+	.sclk(sclk),
+	.sda_in(sda_in),
+	.sda_out(sda_out)
 );
 
 // Local variables
@@ -36,7 +36,7 @@ reg rw_bit_wait = 1'b0;
 localparam READ = 1'b1, WRITE = 1'b0;
 localparam [7:0] DATA_READ = 8'hf6;
 localparam [7:0] DATA_WRITE = 8'ha6;
-reg tic_counter = 0;
+reg [2:0] prescale_counter = 0;
 
 initial begin
 	// dumping
@@ -56,7 +56,7 @@ initial begin
 	sda_in = 1;
 	first_bit_wait = 1;
 	rw_bit_wait = 0;
-	tic_counter = 0;
+	prescale_counter = 0;
 
 	#17 rst = 0; // enable
 	$display("Master out of reset");
@@ -74,13 +74,13 @@ localparam [2:0]
 	MASTER_STATE_DONE = 3'd5;
 reg half_ack = 1'b0;
 
-always #5 clk = ~clk;
+always #5 clk_m = ~clk_m;
 
-always clk_m = #1 clk;
+always clk = #1 clk_m;
 
 always@(posedge clk)
 begin
-	if (!rst) tic_counter++;
+	if (!rst) prescale_counter++;
 	sda_in = sda_out;
 
 	case(state)
@@ -139,7 +139,7 @@ begin
 			half_ack = 1'b0;
 			first_bit_wait = 1'b1;
 		end
-		if (!sclk && tic_counter == 4) begin
+		if (!sclk && prescale_counter == 4) begin
 			sda_in = 1'b0;
 		end
 		else begin
