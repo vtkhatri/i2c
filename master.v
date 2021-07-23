@@ -75,7 +75,10 @@ always @* begin
 				if (!sda_out && sclk) state_next = STATE_ADDRESSING;  // after start signal has been sent
 			end
 			STATE_ADDRESSING: begin
-				if (op_done) state_next = STATE_WAITING;              // all 8-bits of slave address sent
+				if (op_done) begin                                    // all 8-bits of slave address sent
+					op_done = 1'b0;
+					state_next = STATE_WAITING;
+				end
 			end
 			/* ACK signal - sclk pulses low-high-low while sda is held low
 			 *      _          _
@@ -102,12 +105,18 @@ always @* begin
 				end
 			end
 			STATE_READING: begin
-				if (op_done) next_state = STATE_DONE;
+				if (op_done) begin
+					op_done = 1'b0;
+					state_next = STATE_DONE;
+				end
 			end
 			STATE_WRITING: begin
-				if (op_done) next_state = STATE_DONE;
+				if (op_done) begin
+					op_done = 1'b0;
+					state_next = STATE_DONE;
+				end
 			end
-			/* STOP signal - sda goign high when sclk is high
+			/* STOP signal - sda going high when sclk is high
 			 *       ______
 			 * sclk        \_
 			 *          _____
