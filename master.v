@@ -126,6 +126,8 @@ always @* begin
 	end
 end
 
+// TODO
+
 always@(posedge clk) begin
 	state_reg = state_next;
 	if (!rst)  begin
