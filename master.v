@@ -68,17 +68,18 @@ always @* begin
 			 *            |- start signal
 			 */
 			STATE_IDLE: begin
-				if (sclk && sda_out) state_next = STATE_START;        // both high, can bring sda low to send start
+				if (sclk && sda_out) state_next = STATE_START;             // both high, can bring sda low to send start
 			end
 			STATE_START: begin
-				if (sda_out && !sclk) state_next = STATE_IDLE;        // window of start signal has been missed
-				if (!sda_out && sclk) state_next = STATE_ADDRESSING;  // after start signal has been sent
+				if (sda_out && !sclk) state_next = STATE_IDLE;             // window of start signal has been missed
+				else if (!sda_out && sclk) state_next = STATE_ADDRESSING;  // after start signal has been sent
+				else state_next = STATE_START;
 			end
 			STATE_ADDRESSING: begin
-				if (op_done) begin                                    // all 8-bits of slave address sent
+				if (op_done) begin                                         // all 8-bits of slave address sent
 					op_done = 1'b0;
 					state_next = STATE_WAITING;
-				end
+				end else state_next = STATE_ADDRESSING;
 			end
 			/* ACK signal - sclk pulses low-high-low while sda is held low
 			 *      _          _
@@ -92,29 +93,31 @@ always @* begin
 			 */
 			STATE_WAITING: begin
 				if (!sda and !sclk) state_next = STATE_ACK_STARTED;  // conditions are met for clk pulse, everything low
+				else state_next = STATE_WAITING;
 			end
 			STATE_ACK_STARTED: begin
 				if (sda) state_next = STATE_WAITING;                 // sda has gone high, thus stopping ack midway
-				if (!sda && sclk) state_next = STATE_ACKD;           // sda high for pos edge sclk
+				else if (!sda && sclk) state_next = STATE_ACKD;      // sda high for pos edge sclk
+				else state_next = STATE_WAITING;
 			end
 			STATE_ACKD: begin
 				if (sda) state_next = STATE_WAITING;
-				if (!sda and !sclk) begin                            // full ack verified
+				else if (!sda and !sclk) begin                            // full ack verified
 					if (rw == READ) state_next = STATE_READING;
 					else state_next = STATE_WRITING;
-				end
+				end else state_next = STATE_ACKD;
 			end
 			STATE_READING: begin
 				if (op_done) begin
 					op_done = 1'b0;
 					state_next = STATE_DONE;
-				end
+				end else state_next = STATE_READING;
 			end
 			STATE_WRITING: begin
 				if (op_done) begin
 					op_done = 1'b0;
 					state_next = STATE_DONE;
-				end
+				end else state_next = STATE_WRITING;
 			end
 			/* STOP signal - sda going high when sclk is high
 			 *       ______
@@ -125,17 +128,17 @@ always @* begin
 			 *         |- stop signal
 			 */
 			STATE_DONE_WAIT: begin
-				if (sclk && !sda) next_state = STATE_DONE;
+				if (sclk && !sda) state_next = STATE_DONE;
+				else state_next = STATE_DONE_WAIT;
 			end
 			STATE_DONE: begin
-				if (!sclk) next_state = STATE_DONE_WAIT;
-				if (sclk && sda) next_state = STATE_IDLE;
+				if (!sclk) state_next = STATE_DONE_WAIT;
+				if (sclk && sda) state_next = STATE_IDLE;
+				else state_next = STATE_DONE;
 			end
 		endcase
 	end
 end
-
-// TODO
 
 always@(posedge clk) begin
 	state_reg = state_next;
