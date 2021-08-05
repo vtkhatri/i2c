@@ -31,8 +31,8 @@ localparam [3:0]
 	STATE_ACKD        = 4'd5,
 	STATE_READING     = 4'd6,
 	STATE_WRITING     = 4'd7,
-	STATE_DONE_WAIT   = 4'd8,
-	STATE_DONE        = 4'd9;
+	STATE_STOP_WAIT   = 4'd8,
+	STATE_STOP        = 4'd9;
 reg [3:0] state_reg = STATE_IDLE;
 
 assign state = state_reg;
@@ -61,10 +61,9 @@ always@(posedge clk) begin
 	// To sync sda_out and sda_in lines
 	sda_out = sda_in;
 
-	state_reg = state_next;
 	if (!rst)  begin
 		prescale_counter++;
-		if (!prescale_counter) sclk = ~sclk;
+		if (prescale_counter == 3'b000) sclk = ~sclk;
 	end
 end
 
@@ -85,15 +84,15 @@ always @* begin
 			 *            |- start signal
 			 */
 			STATE_IDLE: begin
-				if (sclk && sda_out) state_next = STATE_START;             // both high, can bring sda low to send start
+				if (sclk && sda_in) state_next = STATE_START;             // both high, can bring sda low to send start
 			end
 			STATE_START: begin
-				if (sda_out && !sclk) state_next = STATE_IDLE;             // window of start signal has been missed
-				else if (!sda_out && sclk) state_next = STATE_ADDRESSING;  // after start signal has been sent
+				if (sda_in && !sclk) state_next = STATE_IDLE;             // window of start signal has been missed
+				else if (!sda_in && sclk) state_next = STATE_ADDRESSING;  // after start signal has been sent
 				else state_next = STATE_START;
 			end
 			STATE_ADDRESSING: begin
-				if (op_done) begin                                         // all 8-bits of slave address sent
+				if (op_done) begin
 					op_done = 1'b0;
 					state_next = STATE_WAITING;
 				end else state_next = STATE_ADDRESSING;
@@ -101,27 +100,29 @@ always @* begin
 
 
 			/* ACK signal - sclk pulses low-high-low while sda is held low
-			 *      _          _
-			 * sda   \________/
-			 *          ___
-			 * sclk ___/   \__
-			 *        ^  ^  ^
-			 *        |  |  |- next state here
-			 *        |  |-  state_ackd here
+			 *      ___          _
+			 * sda     \________/
+			 *            ___
+			 * sclk _____/   \__
+			 *      ^  ^  ^  ^
+			 *      |  |  |  |- next state here
+			 *      |  |  |-  state_ackd here
+			 *      |  |- state_ack_started here
+			 *      |- state_waiting here
 			 *        |- state_ack_started here
 			 */
 			STATE_WAITING: begin
-				if (!sda && !sclk) state_next = STATE_ACK_STARTED;  // conditions are met for clk pulse, everything low
+				if (!sda_in && !sclk) state_next = STATE_ACK_STARTED;  // conditions are met for sclk pulse, everything low
 				else state_next = STATE_WAITING;
 			end
 			STATE_ACK_STARTED: begin
-				if (sda) state_next = STATE_WAITING;                 // sda has gone high, thus stopping ack midway
-				else if (!sda && sclk) state_next = STATE_ACKD;      // sda high for pos edge sclk
+				if (sda_in) state_next = STATE_WAITING;                // sda has gone high, thus stopping ack midway
+				else if (!sda_in && sclk) state_next = STATE_ACKD;     // sda high for pos edge sclk
 				else state_next = STATE_WAITING;
 			end
 			STATE_ACKD: begin
-				if (sda) state_next = STATE_WAITING;
-				else if (!sda && !sclk) begin                       // full ack verified
+				if (sda_in) state_next = STATE_WAITING;
+				else if (!sda_in && !sclk) begin                       // full ack verified
 					if (rw == READ) state_next = STATE_READING;
 					else state_next = STATE_WRITING;
 				end else state_next = STATE_ACKD;
@@ -133,33 +134,34 @@ always @* begin
 			STATE_READING: begin
 				if (op_done) begin
 					op_done = 1'b0;
-					state_next = STATE_DONE;
+					state_next = STATE_STOP;
 				end else state_next = STATE_READING;
 			end
 			STATE_WRITING: begin
 				if (op_done) begin
 					op_done = 1'b0;
-					state_next = STATE_DONE;
+					state_next = STATE_STOP;
 				end else state_next = STATE_WRITING;
 			end
 
 
 			/* STOP signal - sda going high when sclk is high
-			 *       ______
+			 *      _______
 			 * sclk        \_
 			 *          _____
-			 * sda   __/
-			 *         ^
-			 *         |- stop signal
+			 * sda  ___/
+			 *       ^   ^
+			 *       |   |- state_stop here
+			 *       |- state_stop_wait here
 			 */
-			STATE_DONE_WAIT: begin
-				if (sclk && !sda) state_next = STATE_DONE;
-				else state_next = STATE_DONE_WAIT;
+			STATE_STOP_WAIT: begin
+				if (sclk && !sda_in) state_next = STATE_STOP;
+				else state_next = STATE_STOP_WAIT;
 			end
-			STATE_DONE: begin
-				if (!sclk) state_next = STATE_DONE_WAIT;
-				if (sclk && sda) state_next = STATE_IDLE;
-				else state_next = STATE_DONE;
+			STATE_STOP: begin
+				if (!sclk) state_next = STATE_STOP_WAIT;
+				if (sclk && sda_in) state_next = STATE_IDLE;
+				else state_next = STATE_STOP;
 			end
 		endcase
 	end
@@ -169,6 +171,7 @@ end
  * DATA HANDLING
  */
 always@(posedge clk) begin
+	state_reg = state_next;
 	case (state_reg)
 		/*       ______
 		 * sclk        \_
@@ -178,105 +181,86 @@ always@(posedge clk) begin
 		 *         |- start signal
 		 */
 		STATE_IDLE: begin
-			if (sclk) begin
-				if (sda_in && prescale_counter != 0) begin
-					sda_out = 1'b0;
-				end
-			end
-			else begin
-				if (!sda_in) state_reg = STATE_ADDRESSING;
-			end
+			sda_out = 1'b1;
+			i_reg = 3'b000;
+			rw_bit_wait = 1'b0;
+		end
+		STATE_START: begin
+			sda_out = 1'b0; // Pulling sda down, thus sending start signal
 		end
 		STATE_ADDRESSING: begin
-			if (!prescale_counter) begin
-				if (sclk) begin
-					if (i_reg == 3'b111) begin
-						if (rw_bit_wait) begin
-						end
-						else begin
-							state_reg = STATE_WAITING; // next state
-							sda_out = 1'b1;            // setting up for receiving ACK
-							i_reg++;                   // resetting i_reg for next set of operations
-						end
-					end
-				end
-				else begin
+			if (prescale_counter == 3'b111) begin // sclk is inverted on 000
+				if (!sclk) begin
+					//if (rw_bit_wait == 1'b1 && i_reg == 3'b111) op_done = 1'b1;
+
 					sda_out = i2c_slave_address[i_reg];
-					if (i_reg != 3'b111) begin
-						rw_bit_wait = 1'b1;
-						i_reg++;
-					end
-					else begin
-						if (rw_bit_wait) sda_out = i2c_slave_address[i_reg];
-						else  sda_out = rw;
-						rw_bit_wait = 1'b0;
-					end
+
+					if (i_reg != 3'b111) i_reg++;
+					else op_done = 1'b1; // TODO : check if rw_bit_wait is required
 				end
 			end
 		end
 		/* ACK signal
-		 *      _          _
-		 * sda   \________/
-		 *          ___
-		 * sclk ___/   \__
-		 *        ^  ^  ^
-		 *        |  |  |- half-ack reset and next state set here, as full ack is sent
-		 *        |  |- half-ack set to 2 here, as sda has been held low for sclk high
-		 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
+		 *      ___          _
+		 * sda     \________/
+		 *            ___
+		 * sclk _____/   \__
+		 *      ^  ^  ^  ^
+		 *      |  |  |  |- next state here
+		 *      |  |  |-  state_ackd here
+		 *      |  |- state_ack_started here
+		 *      |- state_waiting here
 		 */
 		STATE_WAITING: begin
-			if (sclk) begin
-				if (half_ack_received == 2'b01) begin
-					if (sda_in) begin
-						half_ack_received = 2'b00;
-					end
-					else begin
-						half_ack_received = 2'b10;
-					end
-				end
-			end
-			else begin
-				if (sda_in) begin
-					half_ack_received = 2'b00;
-				end
-				else begin
-					if (half_ack_received == 2'b00) half_ack_received = 2'b01;
-					if (half_ack_received == 2'b10) begin
-						half_ack_received = 2'b00;
-						if (rw == READ) state_reg = STATE_READING;
-						else state_reg = STATE_WRITING;
-					end
-				end
-			end
+			if (prescale_counter == 3'b111) sda_out = 1'b0;
 		end
+		STATE_ACK_STARTED: begin
+		end
+		STATE_ACKD: begin
+		end
+
+		/*
+		 * Data transfers
+		 */
 		STATE_READING: begin
-			if (sclk) begin
-			end
-			else begin
-				data_out[i_reg] = sda_in;
-				if (i_reg == 3'b111) begin
-					state_reg = STATE_DONE;
+			if (prescale_counter == 3'b111) begin // sclk is inverted on 000
+				if (!sclk) begin
+					//if (rw_bit_wait == 1'b1 && i_reg == 3'b111) op_done = 1'b1;
+
+					data_out[i_reg] = sda_in;
+
+					if (i_reg != 3'b111) i_reg++;
+					else op_done = 1'b1; // TODO : check if rw_bit_wait is required
 				end
-				i_reg++;
 			end
 		end
 		STATE_WRITING: begin
-			if (sclk) begin
-			end
-			else begin
-				sda_out = data_in[i_reg];
-				if (i_reg == 3'b111) begin
-					state_reg = STATE_DONE;
+			if (prescale_counter == 3'b111) begin // sclk is inverted on 000
+				if (!sclk) begin
+					//if (rw_bit_wait == 1'b1 && i_reg == 3'b111) op_done = 1'b1;
+
+					sda_out = data_in[i_reg];
+
+					if (i_reg != 3'b111) i_reg++;
+					else op_done = 1'b1; // TODO : check if rw_bit_wait is required
 				end
-				i_reg++;
 			end
 		end
-		STATE_DONE: begin
-			if (!sclk) begin
-			end
-			else begin
-				sda_out = 1'b1;
-			end
+
+		/* STOP signal - sda going high when sclk is high
+		 *      _______
+		 * sclk        \_
+		 *          _____
+		 * sda  ___/
+		 *       ^   ^
+		 *       |   |- state_stop here
+		 *       |- state_stop_wait here
+		 */
+		STATE_STOP_WAIT: begin
+			sda_out = 1'b0;
+		end
+		STATE_STOP: begin
+			sda_out = 1'b1;
 		end
 	endcase
 
