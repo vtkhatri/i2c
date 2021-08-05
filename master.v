@@ -23,16 +23,16 @@ parameter [7:0] i2c_slave_address = 8'h5a;
 localparam READ = 1'b1, WRITE = 1'b0;
 
 localparam [3:0]
-	STATE_IDLE        = 3'd0,
-	STATE_START_WAIT  = 3'd1,
-	STATE_ADDRESSING  = 3'd2,
-	STATE_WAITING     = 3'd3,
-	STATE_ACK_STARTED = 3'd4,
-	STATE_ACKD        = 3'd5,
-	STATE_READING     = 3'd6,
-	STATE_WRITING     = 3'd7,
-	STATE_DONE_WAIT   = 3'd8;
-	STATE_DONE        = 3'd9;
+	STATE_IDLE        = 4'd0,
+	STATE_START       = 4'd1,
+	STATE_ADDRESSING  = 4'd2,
+	STATE_WAITING     = 4'd3,
+	STATE_ACK_STARTED = 4'd4,
+	STATE_ACKD        = 4'd5,
+	STATE_READING     = 4'd6,
+	STATE_WRITING     = 4'd7,
+	STATE_DONE_WAIT   = 4'd8,
+	STATE_DONE        = 4'd9;
 reg [3:0] state_reg = STATE_IDLE;
 
 assign state = state_reg;
@@ -81,6 +81,8 @@ always @* begin
 					state_next = STATE_WAITING;
 				end else state_next = STATE_ADDRESSING;
 			end
+
+
 			/* ACK signal - sclk pulses low-high-low while sda is held low
 			 *      _          _
 			 * sda   \________/
@@ -92,7 +94,7 @@ always @* begin
 			 *        |- state_ack_started here
 			 */
 			STATE_WAITING: begin
-				if (!sda and !sclk) state_next = STATE_ACK_STARTED;  // conditions are met for clk pulse, everything low
+				if (!sda && !sclk) state_next = STATE_ACK_STARTED;  // conditions are met for clk pulse, everything low
 				else state_next = STATE_WAITING;
 			end
 			STATE_ACK_STARTED: begin
@@ -102,11 +104,15 @@ always @* begin
 			end
 			STATE_ACKD: begin
 				if (sda) state_next = STATE_WAITING;
-				else if (!sda and !sclk) begin                            // full ack verified
+				else if (!sda && !sclk) begin                       // full ack verified
 					if (rw == READ) state_next = STATE_READING;
 					else state_next = STATE_WRITING;
 				end else state_next = STATE_ACKD;
 			end
+
+
+			/* R/W operation - TODO
+			 */
 			STATE_READING: begin
 				if (op_done) begin
 					op_done = 1'b0;
@@ -119,6 +125,8 @@ always @* begin
 					state_next = STATE_DONE;
 				end else state_next = STATE_WRITING;
 			end
+
+
 			/* STOP signal - sda going high when sclk is high
 			 *       ______
 			 * sclk        \_
@@ -141,6 +149,9 @@ always @* begin
 end
 
 always@(posedge clk) begin
+	// To sync sda_out and sda_in lines
+	sda_out = sda_in;
+
 	state_reg = state_next;
 	if (!rst)  begin
 		prescale_counter++;
@@ -149,119 +160,115 @@ always@(posedge clk) begin
 end
 
 always@(posedge clk) begin
-
-	// To sync sda_out and sda_in lines
-	sda_out = sda_in;
-
 	case (state_reg)
-	STATE_IDLE: begin
-		/*       ______
-		 * sclk        \_
-		 *       __
-		 * sda     \_____
-		 *         ^
-		 *         |- start signal
-		 */
-		if (sclk) begin
-			if (sda_in && prescale_counter != 0) begin
-				sda_out = 1'b0;
+		STATE_IDLE: begin
+			/*       ______
+			 * sclk        \_
+			 *       __
+			 * sda     \_____
+			 *         ^
+			 *         |- start signal
+			 */
+			if (sclk) begin
+				if (sda_in && prescale_counter != 0) begin
+					sda_out = 1'b0;
+				end
+			end
+			else begin
+				if (!sda_in) state_reg = STATE_ADDRESSING;
 			end
 		end
-		else begin
-			if (!sda_in) state_reg = STATE_ADDRESSING;
-		end
-	end
-	STATE_ADDRESSING: begin
-		if (!prescale_counter) begin
-			if (sclk) begin
-				if (i_reg == 3'b111) begin
-					if (rw_bit_wait) begin
+		STATE_ADDRESSING: begin
+			if (!prescale_counter) begin
+				if (sclk) begin
+					if (i_reg == 3'b111) begin
+						if (rw_bit_wait) begin
+						end
+						else begin
+							state_reg = STATE_WAITING; // next state
+							sda_out = 1'b1;            // setting up for receiving ACK
+							i_reg++;                   // resetting i_reg for next set of operations
+						end
+					end
+				end
+				else begin
+					sda_out = i2c_slave_address[i_reg];
+					if (i_reg != 3'b111) begin
+						rw_bit_wait = 1'b1;
+						i_reg++;
 					end
 					else begin
-						state_reg = STATE_WAITING; // next state
-						sda_out = 1'b1;            // setting up for receiving ACK
-						i_reg++;                   // resetting i_reg for next set of operations
+						if (rw_bit_wait) sda_out = i2c_slave_address[i_reg];
+						else  sda_out = rw;
+						rw_bit_wait = 1'b0;
+					end
+				end
+			end
+		end
+		/* ACK signal
+		 *      _          _
+		 * sda   \________/
+		 *          ___
+		 * sclk ___/   \__
+		 *        ^  ^  ^
+		 *        |  |  |- half-ack reset and next state set here, as full ack is sent
+		 *        |  |- half-ack set to 2 here, as sda has been held low for sclk high
+		 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
+		 */
+		STATE_WAITING: begin
+			if (sclk) begin
+				if (half_ack_received == 2'b01) begin
+					if (sda_in) begin
+						half_ack_received = 2'b00;
+					end
+					else begin
+						half_ack_received = 2'b10;
 					end
 				end
 			end
 			else begin
-				sda_out = i2c_slave_address[i_reg];
-				if (i_reg != 3'b111) begin
-					rw_bit_wait = 1'b1;
-					i_reg++;
-				end
-				else begin
-					if (rw_bit_wait) sda_out = i2c_slave_address[i_reg];
-					else  sda_out = rw;
-					rw_bit_wait = 1'b0;
-				end
-			end
-		end
-	end
-	/* ACK signal
-	 *      _          _
-	 * sda   \________/
-	 *          ___
-	 * sclk ___/   \__
-	 *        ^  ^  ^
-	 *        |  |  |- half-ack reset and next state set here, as full ack is sent
-	 *        |  |- half-ack set to 2 here, as sda has been held low for sclk high
-	 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
-	 */
-	STATE_WAITING: begin
-		if (sclk) begin
-			if (half_ack_received == 2'b01) begin
 				if (sda_in) begin
 					half_ack_received = 2'b00;
 				end
 				else begin
-					half_ack_received = 2'b10;
+					if (half_ack_received == 2'b00) half_ack_received = 2'b01;
+					if (half_ack_received == 2'b10) begin
+						half_ack_received = 2'b00;
+						if (rw == READ) state_reg = STATE_READING;
+						else state_reg = STATE_WRITING;
+					end
 				end
 			end
 		end
-		else begin
-			if (sda_in) begin
-				half_ack_received = 2'b00;
+		STATE_READING: begin
+			if (sclk) begin
 			end
 			else begin
-				if (half_ack_received == 2'b00) half_ack_received = 2'b01;
-				if (half_ack_received == 2'b10) begin
-					half_ack_received = 2'b00;
-					if (rw == READ) state_reg = STATE_READING;
-					else state_reg = STATE_WRITING;
+				data_out[i_reg] = sda_in;
+				if (i_reg == 3'b111) begin
+					state_reg = STATE_DONE;
 				end
+				i_reg++;
 			end
 		end
-	end
-	STATE_READING: begin
-		if (sclk) begin
-		end
-		else begin
-			data_out[i_reg] = sda_in;
-			if (i_reg == 3'b111) begin
-				state_reg = STATE_DONE;
+		STATE_WRITING: begin
+			if (sclk) begin
 			end
-			i_reg++;
-		end
-	end
-	STATE_WRITING: begin
-		if (sclk) begin
-		end
-		else begin
-			sda_out = data_in[i_reg];
-			if (i_reg == 3'b111) begin
-				state_reg = STATE_DONE;
+			else begin
+				sda_out = data_in[i_reg];
+				if (i_reg == 3'b111) begin
+					state_reg = STATE_DONE;
+				end
+				i_reg++;
 			end
-			i_reg++;
 		end
-	end
-	STATE_DONE: begin
-		if (!sclk) begin
+		STATE_DONE: begin
+			if (!sclk) begin
+			end
+			else begin
+				sda_out = 1'b1;
+			end
 		end
-		else begin
-			sda_out = 1'b1;
-		end
-	end
 	endcase
 
 	if (rst) begin
