@@ -54,6 +54,23 @@ initial begin
 	state_reg = STATE_IDLE;
 end
 
+/*
+ * SCALING AND SYNC
+ */
+always@(posedge clk) begin
+	// To sync sda_out and sda_in lines
+	sda_out = sda_in;
+
+	state_reg = state_next;
+	if (!rst)  begin
+		prescale_counter++;
+		if (!prescale_counter) sclk = ~sclk;
+	end
+end
+
+/*
+ * STATE HANDLING
+ */
 always @* begin
 	state_next = STATE_IDLE;
 	if (!rst) begin
@@ -148,27 +165,19 @@ always @* begin
 	end
 end
 
-always@(posedge clk) begin
-	// To sync sda_out and sda_in lines
-	sda_out = sda_in;
-
-	state_reg = state_next;
-	if (!rst)  begin
-		prescale_counter++;
-		if (!prescale_counter) sclk = ~sclk;
-	end
-end
-
+/*
+ * DATA HANDLING
+ */
 always@(posedge clk) begin
 	case (state_reg)
+		/*       ______
+		 * sclk        \_
+		 *       __
+		 * sda     \_____
+		 *         ^
+		 *         |- start signal
+		 */
 		STATE_IDLE: begin
-			/*       ______
-			 * sclk        \_
-			 *       __
-			 * sda     \_____
-			 *         ^
-			 *         |- start signal
-			 */
 			if (sclk) begin
 				if (sda_in && prescale_counter != 0) begin
 					sda_out = 1'b0;
