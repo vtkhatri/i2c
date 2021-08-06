@@ -55,19 +55,6 @@ initial begin
 end
 
 /*
- * SCALING AND SYNC
- */
-always@(posedge clk) begin
-	// To sync sda_out and sda_in lines
-	sda_out = sda_in;
-
-	if (!rst)  begin
-		prescale_counter++;
-		if (prescale_counter == 3'b000) sclk = ~sclk;
-	end
-end
-
-/*
  * STATE HANDLING
  */
 always @* begin
@@ -92,10 +79,8 @@ always @* begin
 				else state_next = STATE_START;
 			end
 			STATE_ADDRESSING: begin
-				if (op_done) begin
-					op_done = 1'b0;
-					state_next = STATE_WAITING;
-				end else state_next = STATE_ADDRESSING;
+				if (op_done) state_next = STATE_WAITING;
+				else state_next = STATE_ADDRESSING;
 			end
 
 
@@ -131,16 +116,12 @@ always @* begin
 			/* R/W operation - TODO
 			 */
 			STATE_READING: begin
-				if (op_done) begin
-					op_done = 1'b0;
-					state_next = STATE_STOP;
-				end else state_next = STATE_READING;
+				if (op_done) state_next = STATE_STOP;
+				else state_next = STATE_READING;
 			end
 			STATE_WRITING: begin
-				if (op_done) begin
-					op_done = 1'b0;
-					state_next = STATE_STOP;
-				end else state_next = STATE_WRITING;
+				if (op_done) state_next = STATE_STOP;
+				else state_next = STATE_WRITING;
 			end
 
 
@@ -167,6 +148,19 @@ always @* begin
 end
 
 /*
+ * SCALING AND SYNC
+ */
+always@(posedge clk) begin
+	// To sync sda_out and sda_in lines
+	sda_out = sda_in;
+
+	if (!rst)  begin
+		prescale_counter++;
+		if (prescale_counter == 3'b000) sclk = ~sclk;
+	end
+end
+
+/*
  * DATA HANDLING
  */
 always@(posedge clk) begin
@@ -188,7 +182,7 @@ always@(posedge clk) begin
 			sda_out = 1'b0; // Pulling sda down, thus sending start signal
 		end
 		STATE_ADDRESSING: begin
-			if (prescale_counter == 3'b111) begin // sclk is inverted on 000
+			if (prescale_counter) begin // sclk is inverted on 000
 				if (!sclk) begin
 					//if (rw_bit_wait == 1'b1 && i_reg == 3'b111) op_done = 1'b1;
 
@@ -211,6 +205,7 @@ always@(posedge clk) begin
 		 *      |- state_waiting here
 		 */
 		STATE_WAITING: begin
+			op_done = 1'b0;
 			if (prescale_counter == 3'b111) sda_out = 1'b0;
 		end
 		STATE_ACK_STARTED: begin
@@ -256,6 +251,7 @@ always@(posedge clk) begin
 		 *       |- state_stop_wait here
 		 */
 		STATE_STOP_WAIT: begin
+			op_done = 1'b0;
 			sda_out = 1'b0;
 		end
 		STATE_STOP: begin

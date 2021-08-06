@@ -8,7 +8,7 @@ reg [7:0] data_in;
 reg clk_m;
 
 // ouputs
-wire [2:0] state;
+wire [3:0] state;
 wire [7:0] data_out;
 
 // i2c interface
@@ -65,13 +65,17 @@ initial begin
 	$finish;
 end
 
-localparam [2:0]
-	MASTER_STATE_IDLE = 3'd0,
-	MASTER_STATE_ADDRESSING = 3'd1,
-	MASTER_STATE_WAITING = 3'd2,
-	MASTER_STATE_READING = 3'd3,
-	MASTER_STATE_WRITING = 3'd4,
-	MASTER_STATE_DONE = 3'd5;
+localparam [3:0]
+	MASTER_STATE_IDLE        = 4'd0,
+	MASTER_STATE_START       = 4'd1,
+	MASTER_STATE_ADDRESSING  = 4'd2,
+	MASTER_STATE_WAITING     = 4'd3,
+	MASTER_STATE_ACK_STARTED = 4'd4,
+	MASTER_STATE_ACKD        = 4'd5,
+	MASTER_STATE_READING     = 4'd6,
+	MASTER_STATE_WRITING     = 4'd7,
+	MASTER_STATE_STOP_WAIT   = 4'd8,
+	MASTER_STATE_STOP        = 4'd9;
 reg half_ack = 1'b0;
 
 always #5 clk_m = ~clk_m;
@@ -92,6 +96,7 @@ begin
 	 *         |- start signal
 	 */
 	MASTER_STATE_IDLE: begin
+		/*
 		if (!rst) begin
 			if (sclk) begin
 				if (sda_out) $display("master will send start signal");
@@ -102,6 +107,10 @@ begin
 				else $display("start signal received");
 			end
 		end
+		*/
+	end
+
+	MASTER_STATE_START: begin
 	end
 
 	MASTER_STATE_ADDRESSING: begin
@@ -123,29 +132,25 @@ begin
 		end
 	end
 
-	/* ACK signal
-	 *      _      _
-	 * sda   \____/
-	 *         __
-	 * sclk __/  \__
-	 *        ^  ^
-	 *        |  |- half-ack set to 0 here, as full ack is sent
-	 *        |- half-ack set to 1 here, as sda held low for 1 sclk edge
+	/* ACK signal - sclk pulses low-high-low while sda is held low
+	 *      ___          _
+	 * sda     \________/
+	 *            ___
+	 * sclk _____/   \__
+	 *      ^  ^  ^  ^
+	 *      |  |  |  |- next state here
+	 *      |  |  |-  state_ackd here
+	 *      |  |- state_ack_started here
+	 *      |- state_waiting here
 	 */
 	MASTER_STATE_WAITING: begin
-		if (half_ack) begin
-			$display("full ack sent");
-			sda_in = 1'b1;
-			half_ack = 1'b0;
-			first_bit_wait = 1'b1;
-		end
-		if (!sclk && prescale_counter == 4) begin
-			sda_in = 1'b0;
-		end
-		else begin
-			$display("half ack sent");
-			half_ack = 1'b1;
-		end
+		sda_in = 1'b0;
+	end
+
+	MASTER_STATE_ACK_STARTED: begin
+	end
+
+	MASTER_STATE_ACKD: begin
 	end
 
 	MASTER_STATE_READING: begin
@@ -155,12 +160,17 @@ begin
 			i++;
 		end
 	end
+
 	MASTER_STATE_WRITING: begin
-		$display("ACK received, Master writing");
+		$display("ACK received, master writing");
 	end
 
-	MASTER_STATE_DONE: begin
+	MASTER_STATE_STOP_WAIT: begin
 		$display("master read done, final data = %b", data_out);
+	end
+
+	MASTER_STATE_STOP: begin
+		$display("master stop signal received", data_out);
 		$finish;
 	end
 	endcase
