@@ -114,7 +114,7 @@ begin
 	end
 
 	MASTER_STATE_ADDRESSING: begin
-		if (sclk) begin
+		if (sclk && prescale_counter == 3'b111) begin
 			if (first_bit_wait && i == 0) begin
 				first_bit_wait = 1'b0;
 				if (rw_bit_wait) begin
@@ -154,7 +154,7 @@ begin
 	end
 
 	MASTER_STATE_READING: begin
-		if (!sclk) begin
+		if (!sclk && prescale_counter == 3'b111) begin
 			$display("master reading, data<-bit    = %b<-%b[%d]", data_out, DATA_READ[i], i);
 			sda_in = DATA_READ[i];
 			i++;
