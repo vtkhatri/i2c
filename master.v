@@ -109,7 +109,6 @@ always @* begin
 			 *      |  |  |-  state_ackd here
 			 *      |  |- state_ack_started here
 			 *      |- state_waiting here
-			 *        |- state_ack_started here
 			 */
 			STATE_WAITING: begin
 				if (!sda_in && !sclk) state_next = STATE_ACK_STARTED;  // conditions are met for sclk pulse, everything low
